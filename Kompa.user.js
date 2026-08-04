@@ -1,20 +1,19 @@
 // ==UserScript==
-// @name         Kompa
+// @name         Kompa - Base v8.8.2 (JSONBin Original)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.1
+// @version      8.8.2
+// @description  Filtrage dynamique multi-critères par cases à cocher avec la clé/bin JSON originelle
 // @match        https://app.kompa.pro/*
 // @grant        GM_xmlhttpRequest
 // @connect      api.jsonbin.io
-// @updateURL    https://raw.githubusercontent.com/d171666-hash/Kompa/refs/heads/main/Kompa.user.js
-// @downloadURL  https://raw.githubusercontent.com/d171666-hash/Kompa/refs/heads/main/Kompa.user.js
 // ==/UserScript==
-
 
 (function() {
     'use strict';
 
+    // === GESTION DONNÉES JSONBIN (CONSERVÉE DU PREMIER SCRIPT) ===
     const BIN_ID = '6a70b0cbda38895dfeb42e9e';
-    const API_KEY = '$2a$10$OWJnsjv0sWANqV.iN3SS2.Tfd9ZEEpSfGG9lMGoOqSBSjjb3JBYzO';
+    const API_KEY = '$2a$10$7orDVqDxgul3ukG4RZ7BTOaGeCD0ES1b2dvzfm6wf/1TzOZPoDjb.';
 
     const MARKDOWN_LINK_REGEX = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/gi;
     const RAW_URL_REGEX = /^(https?:\/\/[^\s]+)$/i;
@@ -41,6 +40,7 @@
             .replace(/'/g, "&#039;");
     }
 
+    // === CSS CENTRALISÉ (VERSION 8.8.1) ===
     const styleSheet = document.createElement("style");
     styleSheet.innerText = `
         table {
@@ -269,11 +269,12 @@
         return wrapper;
     }
 
+    // === FONCTIONS REQUÊTES SERVEUR AVEC LOGIQUE DU SCRIPT 1 ===
     function loadCloudData() {
         GM_xmlhttpRequest({
             method: "GET",
             url: `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
-            headers: { "X-Access-Key": API_KEY },
+            headers: { "X-Master-Key": API_KEY },
             onload: function(response) {
                 if (response.status === 200) {
                     const res = JSON.parse(response.responseText);
@@ -299,7 +300,7 @@
                 url: `https://api.jsonbin.io/v3/b/${BIN_ID}`,
                 headers: {
                     "Content-Type": "application/json",
-                    "X-Access-Key": API_KEY
+                    "X-Master-Key": API_KEY
                 },
                 data: JSON.stringify(storeData),
                 onload: function() { isSaving = false; },
@@ -615,7 +616,6 @@
             return;
         }
 
-        // 1. Mise en place exacte des TH (en-têtes)
         if (isQuotePage && !headerRow.querySelector('.col-status')) {
             headerRow.insertBefore(createTH('État', 'col-status', '95px'), headerRow.children[0]);
             headerRow.appendChild(createTH('Cmd Passée & Réf', 'col-cmd', '160px'));
@@ -632,7 +632,6 @@
             headerRow.appendChild(createTH('Note SAV', 'col-sav', '180px'));
         }
 
-        // 2. Traitement direct de chaque ligne de données
         table.querySelectorAll('tbody tr').forEach(row => {
             const idMatch = row.innerText.match(/(D|F|PR)[-\d]+(-AV\d+)?/i);
             if (!idMatch) return;
@@ -643,7 +642,6 @@
                 if (!storeData.quotes[itemId]) storeData.quotes[itemId] = { cmd: false, ref: '', plan: false, calQuery: '', note: '', delaiDate: '', delaiTxt: '', dispo: false };
                 const data = storeData.quotes[itemId];
 
-                // 0. État
                 const tdStatus = document.createElement('td');
                 tdStatus.className = 'cell-status kompa-cell';
                 tdStatus.innerHTML = `
@@ -662,7 +660,6 @@
                 `;
                 row.insertBefore(tdStatus, row.children[0]);
 
-                // 1. Commande
                 const tdCmd = document.createElement('td');
                 tdCmd.className = 'cell-cmd kompa-cell';
                 const chkCmd = document.createElement('input');
@@ -685,7 +682,6 @@
                 tdCmd.appendChild(flexCmd);
                 row.appendChild(tdCmd);
 
-                // 2. Planifié
                 const tdPlan = document.createElement('td');
                 tdPlan.className = 'cell-plan kompa-cell';
                 const chkPlan = document.createElement('input');
@@ -708,7 +704,6 @@
                 tdPlan.appendChild(flexPlan);
                 row.appendChild(tdPlan);
 
-                // 3. Délai
                 const tdDelai = document.createElement('td');
                 tdDelai.className = 'cell-delai kompa-cell';
                 const chkDispo = document.createElement('input');
@@ -740,7 +735,6 @@
                 }));
                 row.appendChild(tdDelai);
 
-                // 4. Note
                 const tdNote = document.createElement('td');
                 tdNote.className = 'cell-note kompa-cell';
                 tdNote.appendChild(createInteractiveField(data.note, 'Note...', '130px', 300, (val) => {
