@@ -1,14 +1,14 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.1 (Alignement strict des colonnes)
+// @name         Kompa
 // @namespace    http://tampermonkey.net/
 // @version      8.8.1
-// @description  Alignement direct des données sous leurs en-têtes respectifs
 // @match        https://app.kompa.pro/*
 // @grant        GM_xmlhttpRequest
 // @connect      api.jsonbin.io
-// @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/refs/heads/main/Kompa.user.js
-// @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/refs/heads/main/Kompa.user.js
-// ==UserScript==
+// @updateURL    https://raw.githubusercontent.com/d171666-hash/Kompa/refs/heads/main/Kompa.user.js
+// @downloadURL  https://raw.githubusercontent.com/d171666-hash/Kompa/refs/heads/main/Kompa.user.js
+// ==/UserScript==
+
 
 (function() {
     'use strict';
