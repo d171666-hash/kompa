@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.3 (Fix Actions Column & Google Calendar OR)
+// @name         Kompa - Base v8.8.4 (Priority Fix: Green over Yellow)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.3
-// @description  Filtrage dynamique, recherche agenda en OR (+OR+) et préservation de la colonne d'actions
+// @version      8.8.4
+// @description  Filtrage dynamique, agenda OR, colonne actions et priorité au vert sur le jaune
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
 // @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -58,6 +58,7 @@
         }
 
         tr.kompa-status-ready { background-color: #f0fdf4 !important; }
+        tr.kompa-status-overdue { background-color: #fef08a !important; }
 
         .kompa-textarea {
             font-size: 11px !important;
@@ -325,8 +326,7 @@
 
         Array.from(headerRow.children).forEach((th, index) => {
             const colName = th.innerText.trim().replace(/[\n\r]+/g, ' ');
-            
-            // Si la colonne n'a pas de nom (ex: la colonne des boutons d'action), on s'assure qu'elle reste toujours visible
+
             if (!colName) {
                 th.style.display = '';
                 table.querySelectorAll('tbody tr').forEach(row => {
@@ -376,10 +376,21 @@
             if (segDispo) segDispo.classList.toggle('active', isDispo);
         }
 
-        row.classList.remove('kompa-status-ready');
+        row.classList.remove('kompa-status-ready', 'kompa-status-overdue');
 
+        let isOverdue = false;
+        if (data.delaiDate) {
+            const today = new Date().toISOString().split('T')[0];
+            if (data.delaiDate < today) {
+                isOverdue = true;
+            }
+        }
+
+        // PRIORITÉ AU VERT : Tout est coché -> Vert, sinon si date dépassée -> Jaune
         if (isCmd && isPlan && isDispo) {
             row.classList.add('kompa-status-ready');
+        } else if (isOverdue) {
+            row.classList.add('kompa-status-overdue');
         }
 
         applyRowFilter(row);
@@ -633,15 +644,11 @@
             return;
         }
 
-        // Déterminer la position avant la dernière colonne (qui contient les actions)
-        const lastThIndex = headerRow.children.length - 1;
-
         if (isQuotePage && !headerRow.querySelector('.col-status')) {
             headerRow.insertBefore(createTH('État', 'col-status', '95px'), headerRow.children[0]);
             
-            // On insère nos nouvelles colonnes juste avant la colonne des boutons d'action
             const actionsTh = headerRow.children[headerRow.children.length - 1];
-            
+
             headerRow.insertBefore(createTH('Cmd Passée & Réf', 'col-cmd', '160px'), actionsTh);
             headerRow.insertBefore(createTH('Planifié & Agenda', 'col-plan', '160px'), actionsTh);
 
@@ -749,6 +756,7 @@
                 inputDate.value = data.delaiDate || '';
                 inputDate.onchange = () => {
                     data.delaiDate = inputDate.value;
+                    updateRowStatusUI(row, data);
                     saveCloudData();
                 };
                 const dispoWrapper = document.createElement('div');
