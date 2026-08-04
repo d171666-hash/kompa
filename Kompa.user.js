@@ -6,8 +6,8 @@
 // @match        https://app.kompa.pro/*
 // @grant        GM_xmlhttpRequest
 // @connect      api.jsonbin.io
-// @updateURL    https:// raw.githubusercontent .com/d171666-hash /Kompa/refs/heads /main/Kompa.user.js
-// @downloadURL  https:// raw.githubusercontent .com/d171666-hash /Kompa/refs/heads /main/Kompa.user.js
+// @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/refs/heads/main/Kompa.user.js
+// @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/refs/heads/main/Kompa.user.js
 // ==UserScript==
 
 (function() {
