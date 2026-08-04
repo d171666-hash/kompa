@@ -4,6 +4,8 @@
 // @version      8.8.2
 // @description  Filtrage dynamique multi-critères par cases à cocher avec la clé/bin JSON originelle
 // @match        https://app.kompa.pro/*
+// @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
+// @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
 // @grant        GM_xmlhttpRequest
 // @connect      api.jsonbin.io
 // ==/UserScript==
