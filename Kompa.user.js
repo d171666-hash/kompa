@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.2 (JSONBin Original)
+// @name         Kompa - Base v8.8.3 (Fix Actions Column & Google Calendar OR)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.2
-// @description  Filtrage dynamique multi-critères par cases à cocher avec la clé/bin JSON originelle
+// @version      8.8.3
+// @description  Filtrage dynamique, recherche agenda en OR (+OR+) et préservation de la colonne d'actions
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
 // @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -13,7 +13,7 @@
 (function() {
     'use strict';
 
-    // === GESTION DONNÉES JSONBIN (CONSERVÉE DU PREMIER SCRIPT) ===
+    // === GESTION DONNÉES JSONBIN ===
     const BIN_ID = '6a70b0cbda38895dfeb42e9e';
     const API_KEY = '$2a$10$7orDVqDxgul3ukG4RZ7BTOaGeCD0ES1b2dvzfm6wf/1TzOZPoDjb.';
 
@@ -42,7 +42,7 @@
             .replace(/'/g, "&#039;");
     }
 
-    // === CSS CENTRALISÉ (VERSION 8.8.1) ===
+    // === CSS CENTRALISÉ ===
     const styleSheet = document.createElement("style");
     styleSheet.innerText = `
         table {
@@ -196,17 +196,22 @@
             displayContainer.innerHTML = '';
 
             if (isCalendarMode) {
-                const query = encodeURIComponent(currentVal);
+                const formattedQuery = currentVal
+                    .trim()
+                    .split(/\s+/)
+                    .map(term => encodeURIComponent(term))
+                    .join('+OR+');
+
                 const isAndroid = /Android/i.test(navigator.userAgent);
                 const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-                const webCalUrl = `https://calendar.google.com/calendar/u/0/r/search?q=${query}`;
+                const webCalUrl = `https://calendar.google.com/calendar/u/0/r/search?q=${formattedQuery}`;
                 let appUrl = webCalUrl;
 
                 if (isAndroid) {
-                    appUrl = `intent://calendar.google.com/calendar/u/0/r/search?q=${query}#Intent;scheme=https;package=com.google.android.calendar;end;`;
+                    appUrl = `intent://calendar.google.com/calendar/u/0/r/search?q=${formattedQuery}#Intent;scheme=https;package=com.google.android.calendar;end;`;
                 } else if (isIOS) {
-                    appUrl = `com.google.calendar://calendar/u/0/r/search?q=${query}`;
+                    appUrl = `com.google.calendar://calendar/u/0/r/search?q=${formattedQuery}`;
                 }
 
                 const linkEl = document.createElement('a');
@@ -271,7 +276,7 @@
         return wrapper;
     }
 
-    // === FONCTIONS REQUÊTES SERVEUR AVEC LOGIQUE DU SCRIPT 1 ===
+    // === REQUÊTES SERVEUR JSONBIN ===
     function loadCloudData() {
         GM_xmlhttpRequest({
             method: "GET",
@@ -320,7 +325,17 @@
 
         Array.from(headerRow.children).forEach((th, index) => {
             const colName = th.innerText.trim().replace(/[\n\r]+/g, ' ');
-            if (!colName) return;
+            
+            // Si la colonne n'a pas de nom (ex: la colonne des boutons d'action), on s'assure qu'elle reste toujours visible
+            if (!colName) {
+                th.style.display = '';
+                table.querySelectorAll('tbody tr').forEach(row => {
+                    if (row.children[index]) {
+                        row.children[index].style.display = '';
+                    }
+                });
+                return;
+            }
 
             const isVisible = storeData.settings[colName] !== false;
             th.style.display = isVisible ? '' : 'none';
@@ -618,20 +633,28 @@
             return;
         }
 
+        // Déterminer la position avant la dernière colonne (qui contient les actions)
+        const lastThIndex = headerRow.children.length - 1;
+
         if (isQuotePage && !headerRow.querySelector('.col-status')) {
             headerRow.insertBefore(createTH('État', 'col-status', '95px'), headerRow.children[0]);
-            headerRow.appendChild(createTH('Cmd Passée & Réf', 'col-cmd', '160px'));
-            headerRow.appendChild(createTH('Planifié & Agenda', 'col-plan', '160px'));
+            
+            // On insère nos nouvelles colonnes juste avant la colonne des boutons d'action
+            const actionsTh = headerRow.children[headerRow.children.length - 1];
+            
+            headerRow.insertBefore(createTH('Cmd Passée & Réf', 'col-cmd', '160px'), actionsTh);
+            headerRow.insertBefore(createTH('Planifié & Agenda', 'col-plan', '160px'), actionsTh);
 
             const thDelai = createTH('Délai Dispo ⇅', 'col-delai col-delai-sortable', '160px');
             thDelai.title = 'Cliquer pour trier par date';
             thDelai.onclick = sortTableByDate;
-            headerRow.appendChild(thDelai);
+            headerRow.insertBefore(thDelai, actionsTh);
 
-            headerRow.appendChild(createTH('Note', 'col-note', '150px'));
+            headerRow.insertBefore(createTH('Note', 'col-note', '150px'), actionsTh);
 
         } else if (isInvoicePage && !headerRow.querySelector('.col-sav')) {
-            headerRow.appendChild(createTH('Note SAV', 'col-sav', '180px'));
+            const actionsTh = headerRow.children[headerRow.children.length - 1];
+            headerRow.insertBefore(createTH('Note SAV', 'col-sav', '180px'), actionsTh);
         }
 
         table.querySelectorAll('tbody tr').forEach(row => {
@@ -639,6 +662,8 @@
             if (!idMatch) return;
 
             const itemId = idMatch[0];
+            const lastTdIndex = row.children.length - 1;
+            const actionsTd = row.children[lastTdIndex];
 
             if (isQuotePage && !row.querySelector('.cell-status')) {
                 if (!storeData.quotes[itemId]) storeData.quotes[itemId] = { cmd: false, ref: '', plan: false, calQuery: '', note: '', delaiDate: '', delaiTxt: '', dispo: false };
@@ -682,7 +707,7 @@
                     saveCloudData();
                 }));
                 tdCmd.appendChild(flexCmd);
-                row.appendChild(tdCmd);
+                row.insertBefore(tdCmd, actionsTd);
 
                 const tdPlan = document.createElement('td');
                 tdPlan.className = 'cell-plan kompa-cell';
@@ -704,7 +729,7 @@
                     saveCloudData();
                 }, true));
                 tdPlan.appendChild(flexPlan);
-                row.appendChild(tdPlan);
+                row.insertBefore(tdPlan, actionsTd);
 
                 const tdDelai = document.createElement('td');
                 tdDelai.className = 'cell-delai kompa-cell';
@@ -735,7 +760,7 @@
                     data.delaiTxt = val;
                     saveCloudData();
                 }));
-                row.appendChild(tdDelai);
+                row.insertBefore(tdDelai, actionsTd);
 
                 const tdNote = document.createElement('td');
                 tdNote.className = 'cell-note kompa-cell';
@@ -743,7 +768,7 @@
                     data.note = val;
                     saveCloudData();
                 }));
-                row.appendChild(tdNote);
+                row.insertBefore(tdNote, actionsTd);
 
                 updateRowStatusUI(row, data);
 
@@ -757,7 +782,7 @@
                     data.sav = val;
                     saveCloudData();
                 }));
-                row.appendChild(tdSavElement);
+                row.insertBefore(tdSavElement, actionsTd);
             }
         });
 
