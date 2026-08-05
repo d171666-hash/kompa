@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.10 (Fix ultime détection statut Signé)
+// @name         Kompa - Base v8.8.8 (Fix ultime détection statut Signé)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.10
+// @version      8.8.8
 // @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -402,10 +402,9 @@
 
         row.classList.remove('kompa-status-ready', 'kompa-status-uncommanded', 'kompa-status-unplanned', 'kompa-status-overdue');
 
-        // Détection élargie du statut "Signé" dans la 2ᵉ cellule (colonne Statut d'origine)
-        const statusTd = row.children[1];
-        const statusText = statusTd ? statusTd.textContent.toLowerCase() : '';
-        const isSigned = statusText.includes('sign');
+        // Détection robuste du statut "Signé" dans toute la ligne
+        const rowText = row.innerText.toLowerCase();
+        const isSigned = rowText.includes('signé') || rowText.includes('signe');
 
         // Vérification du délai dépassé
         let isOverdue = false;
