@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.4 (Priority Fix: Green over Yellow)
+// @name         Kompa - Base v8.8.5 (Auto-resize textareas & 1000 chars)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.4
-// @description  Filtrage dynamique, agenda OR, colonne actions et priorité au vert sur le jaune
+// @version      8.8.5
+// @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
 // @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -63,9 +63,10 @@
         .kompa-textarea {
             font-size: 11px !important;
             padding: 4px 6px !important;
-            border: 1px solid #94a3b8 !important;
+            border: 1px solid #cbd5e1 !important;
             border-radius: 4px !important;
-            resize: vertical !important;
+            resize: none !important;
+            overflow: hidden !important;
             font-family: inherit !important;
             box-sizing: border-box !important;
             line-height: 1.3 !important;
@@ -74,6 +75,13 @@
             width: 100% !important;
             background-color: #ffffff !important;
             color: #0f172a !important;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .kompa-textarea:focus {
+            outline: none !important;
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important;
         }
 
         .kompa-url-link {
@@ -171,7 +179,7 @@
     `;
     document.head.appendChild(styleSheet);
 
-    function createInteractiveField(value, placeholder, width, maxLength, onChange, isCalendarMode = false) {
+    function createInteractiveField(value, placeholder, width, maxLength = 1000, onChange, isCalendarMode = false) {
         const wrapper = document.createElement('div');
         wrapper.style.cssText = `position: relative; display: block; width: ${width};`;
 
@@ -179,8 +187,15 @@
         txt.className = 'kompa-textarea';
         txt.placeholder = placeholder || '';
         txt.value = value || '';
-        txt.maxLength = maxLength || 300;
+        txt.maxLength = maxLength;
         txt.rows = 1;
+
+        const adjustHeight = () => {
+            txt.style.height = 'auto';
+            txt.style.height = (txt.scrollHeight) + 'px';
+        };
+
+        txt.addEventListener('input', adjustHeight);
 
         const displayContainer = document.createElement('div');
         displayContainer.style.cssText = 'font-size: 11px; display: none; line-height: 1.2; word-break: break-all; white-space: normal; user-select: none;';
@@ -191,6 +206,7 @@
             if (!currentVal) {
                 txt.style.display = 'block';
                 displayContainer.style.display = 'none';
+                adjustHeight();
                 return;
             }
 
@@ -251,6 +267,7 @@
             } else {
                 txt.style.display = 'block';
                 displayContainer.style.display = 'none';
+                adjustHeight();
             }
         };
 
@@ -264,6 +281,7 @@
             e.stopPropagation();
             displayContainer.style.display = 'none';
             txt.style.display = 'block';
+            adjustHeight();
             txt.focus();
         };
 
@@ -273,6 +291,7 @@
         wrapper.appendChild(displayContainer);
 
         updateDisplay();
+        setTimeout(adjustHeight, 0);
 
         return wrapper;
     }
@@ -386,7 +405,6 @@
             }
         }
 
-        // PRIORITÉ AU VERT : Tout est coché -> Vert, sinon si date dépassée -> Jaune
         if (isCmd && isPlan && isDispo) {
             row.classList.add('kompa-status-ready');
         } else if (isOverdue) {
@@ -646,7 +664,7 @@
 
         if (isQuotePage && !headerRow.querySelector('.col-status')) {
             headerRow.insertBefore(createTH('État', 'col-status', '95px'), headerRow.children[0]);
-            
+
             const actionsTh = headerRow.children[headerRow.children.length - 1];
 
             headerRow.insertBefore(createTH('Cmd Passée & Réf', 'col-cmd', '160px'), actionsTh);
@@ -709,7 +727,7 @@
                 const flexCmd = document.createElement('div');
                 flexCmd.style.cssText = 'display: flex; align-items: center; gap: 4px;';
                 flexCmd.appendChild(chkCmd);
-                flexCmd.appendChild(createInteractiveField(data.ref, 'Réf cmd...', '120px', 300, (val) => {
+                flexCmd.appendChild(createInteractiveField(data.ref, 'Réf cmd...', '120px', 1000, (val) => {
                     data.ref = val;
                     saveCloudData();
                 }));
@@ -731,7 +749,7 @@
                 const flexPlan = document.createElement('div');
                 flexPlan.style.cssText = 'display: flex; align-items: center; gap: 4px;';
                 flexPlan.appendChild(chkPlan);
-                flexPlan.appendChild(createInteractiveField(data.calQuery || '', 'Recherche Agenda...', '120px', 300, (val) => {
+                flexPlan.appendChild(createInteractiveField(data.calQuery || '', 'Recherche Agenda...', '120px', 1000, (val) => {
                     data.calQuery = val;
                     saveCloudData();
                 }, true));
@@ -764,7 +782,7 @@
                 dispoWrapper.appendChild(chkDispo);
                 dispoWrapper.appendChild(inputDate);
                 tdDelai.appendChild(dispoWrapper);
-                tdDelai.appendChild(createInteractiveField(data.delaiTxt || '', 'Précisions dispo...', '120px', 300, (val) => {
+                tdDelai.appendChild(createInteractiveField(data.delaiTxt || '', 'Précisions dispo...', '120px', 1000, (val) => {
                     data.delaiTxt = val;
                     saveCloudData();
                 }));
@@ -772,7 +790,7 @@
 
                 const tdNote = document.createElement('td');
                 tdNote.className = 'cell-note kompa-cell';
-                tdNote.appendChild(createInteractiveField(data.note, 'Note...', '130px', 300, (val) => {
+                tdNote.appendChild(createInteractiveField(data.note, 'Note...', '130px', 1000, (val) => {
                     data.note = val;
                     saveCloudData();
                 }));
@@ -786,7 +804,7 @@
 
                 const tdSavElement = document.createElement('td');
                 tdSavElement.className = 'cell-sav kompa-cell';
-                tdSavElement.appendChild(createInteractiveField(data.sav, 'Note SAV...', '150px', 300, (val) => {
+                tdSavElement.appendChild(createInteractiveField(data.sav, 'Note SAV...', '150px', 1000, (val) => {
                     data.sav = val;
                     saveCloudData();
                 }));
