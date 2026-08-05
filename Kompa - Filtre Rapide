@@ -1,9 +1,11 @@
 // ==UserScript==
-// @name         Kompa - Filtre Rapide Statuts Devis (v2)
+// @name         Kompa - Filtre Rapide Statuts Devis
 // @namespace    http://tampermonkey.net/
-// @version      2.0.0
-// @description  Ajoute un bouton Tout Sélectionner (En cours) dans le menu Statuts
+// @version      2.1.0
+// @description  Ajoute une option rapide "En cours" dans le filtre Statuts avec support des mises à jour auto
 // @match        https://app.kompa.pro/quotes*
+// @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/KompaStatuts.user.js
+// @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/KompaStatuts.user.js
 // @grant        none
 // ==/UserScript==
 
@@ -20,7 +22,7 @@
         const parentContainer = searchInput.parentElement;
         if (!parentContainer || parentContainer.querySelector('.kompa-quick-container')) return;
 
-        // Container propre sous le champ de recherche
+        // Conteneur propre sous le champ de recherche
         const container = document.createElement('div');
         container.className = 'kompa-quick-container';
         container.style.cssText = `
@@ -52,10 +54,10 @@
         container.appendChild(checkbox);
         container.appendChild(label);
 
-        // Insertion propre après la barre de recherche
+        // Insertion après la barre de recherche
         parentContainer.after(container);
 
-        // Détection de l'état actuel des cases natifs
+        // Détection de l'état actuel des cases natives
         const updateMasterState = () => {
             const popup = searchInput.closest('div[class*="popover"], div[class*="dropdown"], div[style*="z-index"]') || document.body;
             const labels = Array.from(popup.querySelectorAll('label, div'));
