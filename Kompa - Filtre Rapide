@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Kompa - Filtre Rapide Statuts Devis
 // @namespace    http://tampermonkey.net/
-// @version      3.1.0
-// @description  Bouton d'action rapide pour cocher les devis en cours
+// @version      3.2.0
+// @description  Bouton d'action rapide pour cocher les devis en cours avec délai
 // @match        https://app.kompa.pro/quotes*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/refs/heads/main/Kompa%20-%20Filtre%20Rapide.user.js
 // @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/refs/heads/main/Kompa%20-%20Filtre%20Rapide.user.js
@@ -14,7 +14,6 @@
 
     const TARGET_STATUSES = ['Brouillon', 'Finalisé', 'Signé', 'À relancer', 'Relancé'];
 
-    // Simule un vrai clic utilisateur reconnu par React/Vue
     function forceClick(element) {
         if (!element) return;
         ['mousedown', 'mouseup', 'click'].forEach(eventType => {
@@ -33,7 +32,6 @@
         const containerParent = searchInput.parentElement;
         if (!containerParent || containerParent.querySelector('.kompa-action-wrapper')) return;
 
-        // Création du bloc de boutons
         const wrapper = document.createElement('div');
         wrapper.className = 'kompa-action-wrapper';
         wrapper.style.cssText = `
@@ -62,33 +60,40 @@
         wrapper.appendChild(btnSelect);
         containerParent.after(wrapper);
 
-        // Action : Clique séquentiellement sur chaque statut recherché
-        btnSelect.onclick = (e) => {
+        // Clics séquentiels espacés dans le temps
+        btnSelect.onclick = async (e) => {
             e.preventDefault();
             e.stopPropagation();
 
-            // Récupère le menu déroulant actif
-            const dropdown = searchInput.closest('div[class*="popover"], div[class*="dropdown"]') || document.body;
-            const labels = Array.from(dropdown.querySelectorAll('label, div'));
+            btnSelect.innerText = '⏳ Sélection en cours...';
+            btnSelect.disabled = true;
 
-            labels.forEach(node => {
-                const text = node.innerText ? node.innerText.trim() : '';
-                if (TARGET_STATUSES.includes(text)) {
-                    const input = node.querySelector('input[type="checkbox"]');
-                    const targetEl = input || node;
-                    
-                    // Si l'élément n'est pas encore coché, on clique dessus
+            for (const statusName of TARGET_STATUSES) {
+                const dropdown = searchInput.closest('div[class*="popover"], div[class*="dropdown"]') || document.body;
+                const labels = Array.from(dropdown.querySelectorAll('label, div'));
+
+                const targetNode = labels.find(node => {
+                    const txt = node.innerText ? node.innerText.trim() : '';
+                    return txt === statusName;
+                });
+
+                if (targetNode) {
+                    const input = targetNode.querySelector('input[type="checkbox"]');
                     if (input && !input.checked) {
-                        forceClick(targetEl);
+                        forceClick(input);
                     } else if (!input) {
-                        forceClick(targetEl);
+                        forceClick(targetNode);
                     }
+                    // Pause de 120ms pour laisser React enregistrer le clic
+                    await new Promise(resolve => setTimeout(resolve, 120));
                 }
-            });
+            }
+
+            btnSelect.innerText = '⚡ Cocher "En cours"';
+            btnSelect.disabled = false;
         };
     }
 
-    // Détection de l'ouverture du menu au clic sur "Statuts"
     document.addEventListener('click', (e) => {
         const target = e.target;
         if (target && target.innerText && target.innerText.includes('Statuts')) {
