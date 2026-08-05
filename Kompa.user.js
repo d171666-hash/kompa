@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.9 (Fix détection statut Signé)
+// @name         Kompa - Base v8.8.10 (Fix ultime détection statut Signé)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.9
+// @version      8.8.10
 // @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -402,9 +402,10 @@
 
         row.classList.remove('kompa-status-ready', 'kompa-status-uncommanded', 'kompa-status-unplanned', 'kompa-status-overdue');
 
-        // Détection exacte du statut "Signé" grâce à la classe CSS text-lime-600
-        const signedBadge = row.querySelector('.text-lime-600');
-        const isSigned = Boolean(signedBadge && signedBadge.textContent.trim().toLowerCase().includes('signe'));
+        // Détection élargie du statut "Signé" dans la 2ᵉ cellule (colonne Statut d'origine)
+        const statusTd = row.children[1];
+        const statusText = statusTd ? statusTd.textContent.toLowerCase() : '';
+        const isSigned = statusText.includes('sign');
 
         // Vérification du délai dépassé
         let isOverdue = false;
@@ -415,7 +416,7 @@
             }
         }
 
-        // Application des règles de couleur par ordre de priorité
+        // Règles de couleur par ordre de priorité
         if (isCmd && isPlan && isDispo) {
             row.classList.add('kompa-status-ready'); // Vert
         } else if (isSigned && !isCmd) {
