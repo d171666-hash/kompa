@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.7 (Auto-resize textareas & 1000 chars)
+// @name         Kompa - Base v8.8.5 (Auto-resize textareas & 1000 chars)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.7
+// @version      8.8.5
 // @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -57,11 +57,8 @@
             white-space: nowrap !important;
         }
 
-        /* Couleurs des lignes selon les règles */
-        tr.kompa-status-ready { background-color: #f0fdf4 !important; } /* Vert clair */
-        tr.kompa-status-uncommanded { background-color: #fef2f2 !important; } /* Rouge clair */
-        tr.kompa-status-unplanned { background-color: #fff7ed !important; } /* Orange clair */
-        tr.kompa-status-overdue { background-color: #fef08a !important; } /* Jaune clair */
+        tr.kompa-status-ready { background-color: #f0fdf4 !important; }
+        tr.kompa-status-overdue { background-color: #fef08a !important; }
 
         .kompa-textarea {
             font-size: 11px !important;
@@ -153,11 +150,9 @@
             background: transparent;
             transition: background 0.2s ease;
         }
-
-        /* Couleurs du tracker : Rouge / Orange / Jaune */
-        .kompa-bar-segment.seg-cmd.active { background-color: #ef4444; }
-        .kompa-bar-segment.seg-plan.active { background-color: #f97316; }
-        .kompa-bar-segment.seg-dispo.active { background-color: #eab308; }
+        .kompa-bar-segment.seg-cmd.active { background-color: #2563eb; }
+        .kompa-bar-segment.seg-plan.active { background-color: #9333ea; }
+        .kompa-bar-segment.seg-dispo.active { background-color: #16a34a; }
 
         .kompa-filter-group {
             display: flex;
@@ -400,13 +395,8 @@
             if (segDispo) segDispo.classList.toggle('active', isDispo);
         }
 
-        row.classList.remove('kompa-status-ready', 'kompa-status-uncommanded', 'kompa-status-unplanned', 'kompa-status-overdue');
+        row.classList.remove('kompa-status-ready', 'kompa-status-overdue');
 
-        // Détection robuste du statut "Signé" (insensible à la casse et aux accents)
-        const rowText = row.innerText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        const isSigned = rowText.includes('signe');
-
-        // Vérification du délai dépassé
         let isOverdue = false;
         if (data.delaiDate) {
             const today = new Date().toISOString().split('T')[0];
@@ -415,15 +405,10 @@
             }
         }
 
-        // Application des règles de couleur par ordre de priorité
         if (isCmd && isPlan && isDispo) {
-            row.classList.add('kompa-status-ready'); // Vert
-        } else if (isSigned && !isCmd) {
-            row.classList.add('kompa-status-uncommanded'); // Rouge
-        } else if (isSigned && isCmd && !isPlan) {
-            row.classList.add('kompa-status-unplanned'); // Orange
-        } else if (isOverdue && !isDispo) {
-            row.classList.add('kompa-status-overdue'); // Jaune
+            row.classList.add('kompa-status-ready');
+        } else if (isOverdue) {
+            row.classList.add('kompa-status-overdue');
         }
 
         applyRowFilter(row);
