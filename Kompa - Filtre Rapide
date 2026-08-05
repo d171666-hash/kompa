@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         Kompa - Filtre Rapide 3.0.0 Statuts Devis
+// @name         Kompa - Filtre Rapide Statuts Devis
 // @namespace    http://tampermonkey.net/
 // @version      3.0.0
 // @description  Filtre rapide pour les devis en cours sans ralentissement
 // @match        https://app.kompa.pro/quotes*
-// @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/KompaStatuts.user.js
-// @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/KompaStatuts.user.js
+// @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/refs/heads/main/Kompa%20-%20Filtre%20Rapide
+// @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/refs/heads/main/Kompa%20-%20Filtre%20Rapide
 // @grant        none
 // ==/UserScript==
 
