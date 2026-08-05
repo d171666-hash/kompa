@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.9 (Tracking, Liens Markdown & Champs Discrets)
+// @name         Kompa - Base v8.9.0 (Police agrandie, Liens Markdown & Champs Discrets)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.9
-// @description  Filtrage dynamique, agenda OR, champs invisibles au survol, support [mot](url)
+// @version      8.9.0
+// @description  Filtrage dynamique, agenda OR, champs invisibles au survol, police 13px, support [mot](url)
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
 // @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -63,9 +63,9 @@
         tr.kompa-status-unplanned { background-color: #fdba74 !important; }/* Orange saturé */
         tr.kompa-status-overdue { background-color: #fef9c3 !important; }  /* Jaune doux */
 
-        /* Textarea par défaut : style très discret / invisible */
+        /* Textarea par défaut : style discret / invisible, police agrandie à 13px */
         .kompa-textarea {
-            font-size: 11px !important;
+            font-size: 13px !important;
             padding: 3px 5px !important;
             border: 1px transparent !important;
             border-radius: 4px !important;
@@ -74,7 +74,7 @@
             font-family: inherit !important;
             box-sizing: border-box !important;
             line-height: 1.3 !important;
-            min-height: 24px !important;
+            min-height: 26px !important;
             display: block !important;
             width: 100% !important;
             background-color: transparent !important;
@@ -98,7 +98,7 @@
         }
 
         .kompa-url-link {
-            font-size: 11px !important;
+            font-size: 13px !important;
             color: #2563eb !important;
             text-decoration: underline !important;
             white-space: normal !important;
@@ -108,16 +108,16 @@
             margin-top: 2px;
         }
 
-        /* Champ Date discret par défaut */
+        /* Champ Date discret par défaut, police 13px */
         .kompa-date-input {
-            font-size: 11px !important;
+            font-size: 13px !important;
             padding: 2px 4px !important;
             border: 1px transparent !important;
             border-radius: 4px !important;
             font-family: inherit !important;
             box-sizing: border-box !important;
             display: inline-block !important;
-            width: 110px !important;
+            width: 125px !important;
             background-color: transparent !important;
             color: #0f172a !important;
             cursor: pointer;
@@ -236,7 +236,7 @@
         txt.addEventListener('input', adjustHeight);
 
         const displayContainer = document.createElement('div');
-        displayContainer.style.cssText = 'font-size: 11px; display: none; line-height: 1.2; word-break: break-all; white-space: normal; user-select: none; padding: 3px 5px;';
+        displayContainer.style.cssText = 'font-size: 13px; display: none; line-height: 1.2; word-break: break-all; white-space: normal; user-select: none; padding: 3px 5px;';
 
         const updateDisplay = () => {
             const currentVal = txt.value.trim();
@@ -282,7 +282,6 @@
                 return;
             }
 
-            // Gestion des liens Markdown [texte](url) ou URL brute
             if (MARKDOWN_LINK_REGEX.test(currentVal)) {
                 displayContainer.innerHTML = parseMarkdownLinks(currentVal);
                 txt.style.display = 'none';
