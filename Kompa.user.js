@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.5 (Auto-resize textareas & 1000 chars)
+// @name         Kompa - Base v8.8.8 (Fix crash & dynamic load)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.5
+// @version      8.8.6
 // @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -17,7 +17,6 @@
     const BIN_ID = '6a70b0cbda38895dfeb42e9e';
     const API_KEY = '$2a$10$7orDVqDxgul3ukG4RZ7BTOaGeCD0ES1b2dvzfm6wf/1TzOZPoDjb.';
 
-    const MARKDOWN_LINK_REGEX = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/gi;
     const RAW_URL_REGEX = /^(https?:\/\/[^\s]+)$/i;
 
     let storeData = { quotes: {}, invoices: {}, settings: {} };
@@ -25,6 +24,7 @@
     let saveTimeout = null;
     let sortAsc = true;
     let observer = null;
+    let isProcessing = false;
 
     let filterState = {
         cmd: false,
@@ -244,11 +244,10 @@
                 return;
             }
 
-            if (MARKDOWN_LINK_REGEX.test(currentVal)) {
-                MARKDOWN_LINK_REGEX.lastIndex = 0;
-                const formattedHtml = escapeHtml(currentVal).replace(MARKDOWN_LINK_REGEX, (match, text, url) => {
-                    const safeUrl = escapeHtml(url);
-                    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="kompa-url-link">${text}</a>`;
+            const markdownRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/gi;
+            if (markdownRegex.test(currentVal)) {
+                const formattedHtml = escapeHtml(currentVal).replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/gi, (match, text, url) => {
+                    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="kompa-url-link">${escapeHtml(text)}</a>`;
                 });
                 displayContainer.innerHTML = formattedHtml;
                 txt.style.display = 'none';
@@ -441,7 +440,7 @@
         table.querySelectorAll('tbody tr').forEach(row => {
             applyRowFilter(row);
         });
-        calculateTotals(window.location.pathname.toLowerCase().endsWith('/quotes'), window.location.pathname.toLowerCase().endsWith('/invoices'));
+        calculateTotals(window.location.pathname.toLowerCase().includes('/quotes'), window.location.pathname.toLowerCase().includes('/invoices'));
     }
 
     function toggleModal(show) {
@@ -549,14 +548,7 @@
             totalBanner.id = 'kompa-custom-totals';
             totalBanner.style.cssText = 'padding: 6px 10px; margin: 8px 0; background: #f0f9ff; border-radius: 6px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; font-size: 11px; border: 1px solid #bae6fd; flex-wrap: wrap; gap: 6px; box-sizing: border-box; color: #0369a1; width: 100%;';
 
-            const searchInput = document.querySelector('input[placeholder*="Rechercher"]');
-            let filterBlock = searchInput ? searchInput.closest('div[class*="flex"], div[class*="grid"]') : null;
-
-            if (filterBlock && filterBlock.parentNode) {
-                filterBlock.parentNode.insertBefore(totalBanner, filterBlock.nextSibling);
-            } else {
-                table.parentElement.insertBefore(totalBanner, table);
-            }
+            table.parentElement.insertBefore(totalBanner, table);
         }
 
         const fmt = num => num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
@@ -639,25 +631,31 @@
     }
 
     function processTable() {
+        if (isProcessing) return;
+        isProcessing = true;
+
         if (observer) observer.disconnect();
 
         const table = document.querySelector('table');
         if (!table) {
+            isProcessing = false;
             reconnectObserver();
             return;
         }
 
         const headerRow = table.querySelector('thead tr');
         if (!headerRow) {
+            isProcessing = false;
             reconnectObserver();
             return;
         }
 
         const currentPath = window.location.pathname.toLowerCase();
-        const isInvoicePage = currentPath.endsWith('/invoices') || currentPath.endsWith('/invoices/');
-        const isQuotePage = currentPath.endsWith('/quotes') || currentPath.endsWith('/quotes/');
+        const isInvoicePage = currentPath.includes('/invoices');
+        const isQuotePage = currentPath.includes('/quotes');
 
         if (!isInvoicePage && !isQuotePage) {
+            isProcessing = false;
             reconnectObserver();
             return;
         }
@@ -814,6 +812,8 @@
 
         calculateTotals(isQuotePage, isInvoicePage);
         applyColumnVisibility();
+
+        isProcessing = false;
         reconnectObserver();
     }
 
@@ -839,7 +839,7 @@
     let debounceTimer = null;
     observer = new MutationObserver(() => {
         if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(processTable, 300);
+        debounceTimer = setTimeout(processTable, 250);
     });
 
     reconnectObserver();
