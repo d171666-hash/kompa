@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.8 (Fix ultime détection statut Signé)
+// @name         Kompa - Base v8.8.118 (Fix ultime détection statut Signé)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.8
+// @version      8.8.11
 // @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
