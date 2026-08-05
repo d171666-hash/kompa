@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.8 (Fix crash & dynamic load)
+// @name         Kompa - Base v8.8.9 (Fix détection statut Signé)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.6
+// @version      8.8.9
 // @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -17,6 +17,7 @@
     const BIN_ID = '6a70b0cbda38895dfeb42e9e';
     const API_KEY = '$2a$10$7orDVqDxgul3ukG4RZ7BTOaGeCD0ES1b2dvzfm6wf/1TzOZPoDjb.';
 
+    const MARKDOWN_LINK_REGEX = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/gi;
     const RAW_URL_REGEX = /^(https?:\/\/[^\s]+)$/i;
 
     let storeData = { quotes: {}, invoices: {}, settings: {} };
@@ -24,7 +25,6 @@
     let saveTimeout = null;
     let sortAsc = true;
     let observer = null;
-    let isProcessing = false;
 
     let filterState = {
         cmd: false,
@@ -57,8 +57,11 @@
             white-space: nowrap !important;
         }
 
-        tr.kompa-status-ready { background-color: #f0fdf4 !important; }
-        tr.kompa-status-overdue { background-color: #fef08a !important; }
+        /* Couleurs des lignes selon les règles */
+        tr.kompa-status-ready { background-color: #f0fdf4 !important; } /* Vert clair */
+        tr.kompa-status-uncommanded { background-color: #fef2f2 !important; } /* Rouge clair */
+        tr.kompa-status-unplanned { background-color: #fff7ed !important; } /* Orange clair */
+        tr.kompa-status-overdue { background-color: #fef08a !important; } /* Jaune clair */
 
         .kompa-textarea {
             font-size: 11px !important;
@@ -150,9 +153,11 @@
             background: transparent;
             transition: background 0.2s ease;
         }
-        .kompa-bar-segment.seg-cmd.active { background-color: #2563eb; }
-        .kompa-bar-segment.seg-plan.active { background-color: #9333ea; }
-        .kompa-bar-segment.seg-dispo.active { background-color: #16a34a; }
+
+        /* Couleurs du tracker : Rouge / Orange / Jaune */
+        .kompa-bar-segment.seg-cmd.active { background-color: #ef4444; }
+        .kompa-bar-segment.seg-plan.active { background-color: #f97316; }
+        .kompa-bar-segment.seg-dispo.active { background-color: #eab308; }
 
         .kompa-filter-group {
             display: flex;
@@ -244,10 +249,11 @@
                 return;
             }
 
-            const markdownRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/gi;
-            if (markdownRegex.test(currentVal)) {
-                const formattedHtml = escapeHtml(currentVal).replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/gi, (match, text, url) => {
-                    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="kompa-url-link">${escapeHtml(text)}</a>`;
+            if (MARKDOWN_LINK_REGEX.test(currentVal)) {
+                MARKDOWN_LINK_REGEX.lastIndex = 0;
+                const formattedHtml = escapeHtml(currentVal).replace(MARKDOWN_LINK_REGEX, (match, text, url) => {
+                    const safeUrl = escapeHtml(url);
+                    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="kompa-url-link">${text}</a>`;
                 });
                 displayContainer.innerHTML = formattedHtml;
                 txt.style.display = 'none';
@@ -394,8 +400,13 @@
             if (segDispo) segDispo.classList.toggle('active', isDispo);
         }
 
-        row.classList.remove('kompa-status-ready', 'kompa-status-overdue');
+        row.classList.remove('kompa-status-ready', 'kompa-status-uncommanded', 'kompa-status-unplanned', 'kompa-status-overdue');
 
+        // Détection exacte du statut "Signé" grâce à la classe CSS text-lime-600
+        const signedBadge = row.querySelector('.text-lime-600');
+        const isSigned = Boolean(signedBadge && signedBadge.textContent.trim().toLowerCase().includes('signe'));
+
+        // Vérification du délai dépassé
         let isOverdue = false;
         if (data.delaiDate) {
             const today = new Date().toISOString().split('T')[0];
@@ -404,10 +415,15 @@
             }
         }
 
+        // Application des règles de couleur par ordre de priorité
         if (isCmd && isPlan && isDispo) {
-            row.classList.add('kompa-status-ready');
-        } else if (isOverdue) {
-            row.classList.add('kompa-status-overdue');
+            row.classList.add('kompa-status-ready'); // Vert
+        } else if (isSigned && !isCmd) {
+            row.classList.add('kompa-status-uncommanded'); // Rouge
+        } else if (isSigned && isCmd && !isPlan) {
+            row.classList.add('kompa-status-unplanned'); // Orange
+        } else if (isOverdue && !isDispo) {
+            row.classList.add('kompa-status-overdue'); // Jaune
         }
 
         applyRowFilter(row);
@@ -440,7 +456,7 @@
         table.querySelectorAll('tbody tr').forEach(row => {
             applyRowFilter(row);
         });
-        calculateTotals(window.location.pathname.toLowerCase().includes('/quotes'), window.location.pathname.toLowerCase().includes('/invoices'));
+        calculateTotals(window.location.pathname.toLowerCase().endsWith('/quotes'), window.location.pathname.toLowerCase().endsWith('/invoices'));
     }
 
     function toggleModal(show) {
@@ -548,7 +564,14 @@
             totalBanner.id = 'kompa-custom-totals';
             totalBanner.style.cssText = 'padding: 6px 10px; margin: 8px 0; background: #f0f9ff; border-radius: 6px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; font-size: 11px; border: 1px solid #bae6fd; flex-wrap: wrap; gap: 6px; box-sizing: border-box; color: #0369a1; width: 100%;';
 
-            table.parentElement.insertBefore(totalBanner, table);
+            const searchInput = document.querySelector('input[placeholder*="Rechercher"]');
+            let filterBlock = searchInput ? searchInput.closest('div[class*="flex"], div[class*="grid"]') : null;
+
+            if (filterBlock && filterBlock.parentNode) {
+                filterBlock.parentNode.insertBefore(totalBanner, filterBlock.nextSibling);
+            } else {
+                table.parentElement.insertBefore(totalBanner, table);
+            }
         }
 
         const fmt = num => num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
@@ -631,31 +654,25 @@
     }
 
     function processTable() {
-        if (isProcessing) return;
-        isProcessing = true;
-
         if (observer) observer.disconnect();
 
         const table = document.querySelector('table');
         if (!table) {
-            isProcessing = false;
             reconnectObserver();
             return;
         }
 
         const headerRow = table.querySelector('thead tr');
         if (!headerRow) {
-            isProcessing = false;
             reconnectObserver();
             return;
         }
 
         const currentPath = window.location.pathname.toLowerCase();
-        const isInvoicePage = currentPath.includes('/invoices');
-        const isQuotePage = currentPath.includes('/quotes');
+        const isInvoicePage = currentPath.endsWith('/invoices') || currentPath.endsWith('/invoices/');
+        const isQuotePage = currentPath.endsWith('/quotes') || currentPath.endsWith('/quotes/');
 
         if (!isInvoicePage && !isQuotePage) {
-            isProcessing = false;
             reconnectObserver();
             return;
         }
@@ -812,8 +829,6 @@
 
         calculateTotals(isQuotePage, isInvoicePage);
         applyColumnVisibility();
-
-        isProcessing = false;
         reconnectObserver();
     }
 
@@ -839,7 +854,7 @@
     let debounceTimer = null;
     observer = new MutationObserver(() => {
         if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(processTable, 250);
+        debounceTimer = setTimeout(processTable, 300);
     });
 
     reconnectObserver();
