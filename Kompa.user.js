@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.12 (Tracking & Couleurs Statuts)
+// @name         Kompa - Base v8.8.7 (Tracking & Couleurs Statuts)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.12
+// @version      8.8.7
 // @description  Filtrage dynamique, agenda OR, suivi visuel par couleurs selon statut
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -58,10 +58,10 @@
         }
 
         /* Couleurs des lignes selon statut */
-        tr.kompa-status-ready { background-color: #f0fdf4 !important; }    /* Vert clair */
-        tr.kompa-status-unsigned { background-color: #fee2e2 !important; } /* Rouge clair */
-        tr.kompa-status-unplanned { background-color: #ffedd5 !important; }/* Orange clair */
-        tr.kompa-status-overdue { background-color: #fef08a !important; }  /* Jaune clair */
+        tr.kompa-status-ready { background-color: #dcfce7 !important; }    /* Vert saturé */
+        tr.kompa-status-unsigned { background-color: #fca5a5 !important; } /* Rouge saturé */
+        tr.kompa-status-unplanned { background-color: #fdba74 !important; }/* Orange saturé */
+        tr.kompa-status-overdue { background-color: #fef9c3 !important; }  /* Jaune doux */
 
         .kompa-textarea {
             font-size: 11px !important;
@@ -154,7 +154,7 @@
             transition: background 0.2s ease;
         }
         
-        /* Nouvelles couleurs des segments du tracker */
+        /* Couleurs des segments du tracker */
         .kompa-bar-segment.seg-cmd.active { background-color: #ef4444; }   /* Rouge */
         .kompa-bar-segment.seg-plan.active { background-color: #f97316; }  /* Orange */
         .kompa-bar-segment.seg-dispo.active { background-color: #eab308; } /* Jaune */
@@ -410,10 +410,8 @@
 
         row.classList.remove('kompa-status-ready', 'kompa-status-unsigned', 'kompa-status-unplanned', 'kompa-status-overdue');
 
-        // Détection du statut natif du devis (Signé)
         const isSigned = Array.from(row.querySelectorAll('td, span')).some(el => el.textContent.trim().toLowerCase() === 'signé');
 
-        // Détection de date de mise à disposition dépassée
         let isOverdue = false;
         if (data.delaiDate) {
             const today = new Date().toISOString().split('T')[0];
@@ -422,7 +420,6 @@
             }
         }
 
-        // Application des règles de coloration hiérarchisées
         if (isCmd && isPlan && isDispo) {
             row.classList.add('kompa-status-ready');
         } else if (isSigned && !isCmd) {
