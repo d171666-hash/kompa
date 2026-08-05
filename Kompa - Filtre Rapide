@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kompa - Filtre Rapide Statuts Devis
+// @name         Kompa - Filtre Rapide 3.0.0 Statuts Devis
 // @namespace    http://tampermonkey.net/
-// @version      2.1.0
-// @description  Ajoute une option rapide "En cours" dans le filtre Statuts avec support des mises à jour auto
+// @version      3.0.0
+// @description  Filtre rapide pour les devis en cours sans ralentissement
 // @match        https://app.kompa.pro/quotes*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/KompaStatuts.user.js
 // @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/KompaStatuts.user.js
@@ -14,15 +14,22 @@
 
     const TARGET_STATUSES = ['Brouillon', 'Finalisé', 'Signé', 'À relancer', 'Relancé'];
 
-    function injectCustomOption() {
+    function triggerNativeClick(element) {
+        const eventOptions = { bubbles: true, cancelable: true, view: window };
+        element.dispatchEvent(new MouseEvent('mousedown', eventOptions));
+        element.dispatchEvent(new MouseEvent('mouseup', eventOptions));
+        element.dispatchEvent(new MouseEvent('click', eventOptions));
+    }
+
+    function setupQuickFilter() {
         const searchInput = document.querySelector('input[placeholder*="Rechercher statuts"]');
         if (!searchInput) return;
 
-        // Éviter les doublons
-        const parentContainer = searchInput.parentElement;
-        if (!parentContainer || parentContainer.querySelector('.kompa-quick-container')) return;
+        // Éviter les injections multiples
+        const popover = searchInput.closest('div[class*="popover"], div[class*="dropdown"]') || searchInput.parentElement.parentElement;
+        if (!popover || popover.querySelector('.kompa-quick-container')) return;
 
-        // Conteneur propre sous le champ de recherche
+        // Conteneur sous la barre de recherche du menu
         const container = document.createElement('div');
         container.className = 'kompa-quick-container';
         container.style.cssText = `
@@ -39,13 +46,10 @@
             font-weight: 600;
             color: #0284c7;
             user-select: none;
-            width: 100%;
-            box-sizing: border-box;
         `;
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.className = 'kompa-quick-chk';
         checkbox.style.cssText = 'cursor: pointer; accent-color: #0284c7; width: 14px; height: 14px; margin: 0;';
 
         const label = document.createElement('span');
@@ -54,60 +58,37 @@
         container.appendChild(checkbox);
         container.appendChild(label);
 
-        // Insertion après la barre de recherche
-        parentContainer.after(container);
+        searchInput.parentElement.after(container);
 
-        // Détection de l'état actuel des cases natives
-        const updateMasterState = () => {
-            const popup = searchInput.closest('div[class*="popover"], div[class*="dropdown"], div[style*="z-index"]') || document.body;
-            const labels = Array.from(popup.querySelectorAll('label, div'));
-            
-            let matchCount = 0;
-            let checkedCount = 0;
-
-            labels.forEach(el => {
-                const text = el.innerText ? el.innerText.trim() : '';
-                if (TARGET_STATUSES.includes(text)) {
-                    matchCount++;
-                    const input = el.querySelector('input[type="checkbox"]');
-                    if (input && input.checked) checkedCount++;
-                }
-            });
-
-            checkbox.checked = matchCount > 0 && checkedCount === matchCount;
-        };
-
-        // Action au clic
-        const toggleAll = (e) => {
+        // Action lors du clic
+        container.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
 
             const targetState = !checkbox.checked;
             checkbox.checked = targetState;
 
-            const popup = searchInput.closest('div[class*="popover"], div[class*="dropdown"], div[style*="z-index"]') || document.body;
-            const labels = Array.from(popup.querySelectorAll('label, div'));
+            // Recherche des options de statut
+            const options = Array.from(popover.querySelectorAll('label, div')).filter(el => {
+                const txt = el.innerText ? el.innerText.trim() : '';
+                return TARGET_STATUSES.includes(txt);
+            });
 
-            labels.forEach(el => {
-                const text = el.innerText ? el.innerText.trim() : '';
-                if (TARGET_STATUSES.includes(text)) {
-                    const input = el.querySelector('input[type="checkbox"]');
-                    if (input && input.checked !== targetState) {
-                        input.click();
-                    }
+            options.forEach(opt => {
+                const input = opt.querySelector('input[type="checkbox"]');
+                if (input && input.checked !== targetState) {
+                    triggerNativeClick(input);
                 }
             });
         };
-
-        container.onclick = toggleAll;
-        checkbox.onclick = (e) => e.stopPropagation();
-
-        updateMasterState();
     }
 
-    const observer = new MutationObserver(() => {
-        injectCustomOption();
-    });
+    // Écouteur ciblé sur les clics utilisateur (évite le ralentissement)
+    document.addEventListener('click', (e) => {
+        const btnStatuts = e.target.closest('button, div');
+        if (btnStatuts && btnStatuts.innerText && btnStatuts.innerText.includes('Statuts')) {
+            setTimeout(setupQuickFilter, 100);
+        }
+    }, true);
 
-    observer.observe(document.body, { childList: true, subtree: true });
 })();
