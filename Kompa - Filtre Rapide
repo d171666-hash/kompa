@@ -1,0 +1,91 @@
+// ==UserScript==
+// @name         Kompa - Filtre Rapide Statuts Devis
+// @namespace    http://tampermonkey.net/
+// @version      1.0.0
+// @description  Ajoute une option dans le filtre Statuts pour sélectionner rapidement Brouillon, Finalisé, Signé, À relancer et Relancé
+// @match        https://app.kompa.pro/quotes*
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    const TARGET_STATUSES = ['Brouillon', 'Finalisé', 'Signé', 'À relancer', 'Relancé'];
+
+    function injectCustomOption() {
+        // Chercher le menu déroulant des statuts
+        const searchInput = document.querySelector('input[placeholder*="Rechercher statuts"]');
+        if (!searchInput) return;
+
+        const dropdownList = searchInput.closest('div');
+        if (!dropdownList || dropdownList.querySelector('.kompa-quick-select')) return;
+
+        // Créer l'élément personnalisé
+        const customItem = document.createElement('div');
+        customItem.className = 'kompa-quick-select';
+        customItem.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            color: #0284c7;
+            background-color: #f0f9ff;
+            border-radius: 4px;
+            user-select: none;
+        `;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.style.cssText = 'cursor: pointer; accent-color: #0284c7; width: 14px; height: 14px;';
+
+        const label = document.createElement('span');
+        label.innerText = '⚡ En cours (Brouillon, Finalisé, Signé...)';
+
+        customItem.appendChild(checkbox);
+        customItem.appendChild(label);
+
+        // Insérer juste au-dessus de la barre de recherche ou en haut de la liste
+        if (searchInput.parentElement) {
+            searchInput.parentElement.insertBefore(customItem, searchInput);
+        } else {
+            dropdownList.prepend(customItem);
+        }
+
+        // Action au clic sur l'option rapide
+        const handleToggle = (e) => {
+            e.stopPropagation();
+            const shouldCheck = checkbox.checked;
+
+            // Récupérer toutes les options de statut
+            const items = dropdownList.querySelectorAll('label, div');
+            items.forEach(item => {
+                const text = item.innerText ? item.innerText.trim() : '';
+                if (TARGET_STATUSES.includes(text)) {
+                    const input = item.querySelector('input[type="checkbox"]');
+                    if (input && input.checked !== shouldCheck) {
+                        input.click(); // Déclenche l'événement d'origine du site pour appliquer le filtre
+                    }
+                }
+            });
+        };
+
+        customItem.onclick = (e) => {
+            if (e.target !== checkbox) {
+                checkbox.checked = !checkbox.checked;
+            }
+            handleToggle(e);
+        };
+    }
+
+    // Observer pour détecter l'ouverture du menu déroulant
+    const observer = new MutationObserver(() => {
+        injectCustomOption();
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+})();
