@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.118 (Fix ultime détection statut Signé)
+// @name         Kompa - Base v8.8.12 (Tracking & Couleurs Statuts)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.11
-// @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
+// @version      8.8.12
+// @description  Filtrage dynamique, agenda OR, suivi visuel par couleurs selon statut
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
 // @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -57,11 +57,11 @@
             white-space: nowrap !important;
         }
 
-        /* Couleurs des lignes selon les règles */
-        tr.kompa-status-ready { background-color: #f0fdf4 !important; } /* Vert clair */
-        tr.kompa-status-uncommanded { background-color: #fef2f2 !important; } /* Rouge clair */
-        tr.kompa-status-unplanned { background-color: #fff7ed !important; } /* Orange clair */
-        tr.kompa-status-overdue { background-color: #fef08a !important; } /* Jaune clair */
+        /* Couleurs des lignes selon statut */
+        tr.kompa-status-ready { background-color: #f0fdf4 !important; }    /* Vert clair */
+        tr.kompa-status-unsigned { background-color: #fee2e2 !important; } /* Rouge clair */
+        tr.kompa-status-unplanned { background-color: #ffedd5 !important; }/* Orange clair */
+        tr.kompa-status-overdue { background-color: #fef08a !important; }  /* Jaune clair */
 
         .kompa-textarea {
             font-size: 11px !important;
@@ -153,11 +153,11 @@
             background: transparent;
             transition: background 0.2s ease;
         }
-
-        /* Couleurs du tracker : Rouge / Orange / Jaune */
-        .kompa-bar-segment.seg-cmd.active { background-color: #ef4444; }
-        .kompa-bar-segment.seg-plan.active { background-color: #f97316; }
-        .kompa-bar-segment.seg-dispo.active { background-color: #eab308; }
+        
+        /* Nouvelles couleurs des segments du tracker */
+        .kompa-bar-segment.seg-cmd.active { background-color: #ef4444; }   /* Rouge */
+        .kompa-bar-segment.seg-plan.active { background-color: #f97316; }  /* Orange */
+        .kompa-bar-segment.seg-dispo.active { background-color: #eab308; } /* Jaune */
 
         .kompa-filter-group {
             display: flex;
@@ -301,6 +301,14 @@
         return wrapper;
     }
 
+    function createTH(text, className, width) {
+        const th = document.createElement('th');
+        th.className = className;
+        th.innerText = text;
+        th.style.cssText = `width: ${width}; padding: 6px 8px; font-weight: 600; text-align: left; vertical-align: middle;`;
+        return th;
+    }
+
     // === REQUÊTES SERVEUR JSONBIN ===
     function loadCloudData() {
         GM_xmlhttpRequest({
@@ -400,13 +408,12 @@
             if (segDispo) segDispo.classList.toggle('active', isDispo);
         }
 
-        row.classList.remove('kompa-status-ready', 'kompa-status-uncommanded', 'kompa-status-unplanned', 'kompa-status-overdue');
+        row.classList.remove('kompa-status-ready', 'kompa-status-unsigned', 'kompa-status-unplanned', 'kompa-status-overdue');
 
-        // Détection robuste du statut "Signé" dans toute la ligne
-        const rowText = row.innerText.toLowerCase();
-        const isSigned = rowText.includes('signé') || rowText.includes('signe');
+        // Détection du statut natif du devis (Signé)
+        const isSigned = Array.from(row.querySelectorAll('td, span')).some(el => el.textContent.trim().toLowerCase() === 'signé');
 
-        // Vérification du délai dépassé
+        // Détection de date de mise à disposition dépassée
         let isOverdue = false;
         if (data.delaiDate) {
             const today = new Date().toISOString().split('T')[0];
@@ -415,15 +422,15 @@
             }
         }
 
-        // Règles de couleur par ordre de priorité
+        // Application des règles de coloration hiérarchisées
         if (isCmd && isPlan && isDispo) {
-            row.classList.add('kompa-status-ready'); // Vert
+            row.classList.add('kompa-status-ready');
         } else if (isSigned && !isCmd) {
-            row.classList.add('kompa-status-uncommanded'); // Rouge
+            row.classList.add('kompa-status-unsigned');
         } else if (isSigned && isCmd && !isPlan) {
-            row.classList.add('kompa-status-unplanned'); // Orange
+            row.classList.add('kompa-status-unplanned');
         } else if (isOverdue && !isDispo) {
-            row.classList.add('kompa-status-overdue'); // Jaune
+            row.classList.add('kompa-status-overdue');
         }
 
         applyRowFilter(row);
@@ -793,19 +800,15 @@
                     saveCloudData();
                 };
                 const dispoWrapper = document.createElement('div');
-                dispoWrapper.style.cssText = 'display: flex; align-items: center; gap: 4px; margin-bottom: 2px;';
+                dispoWrapper.style.cssText = 'display: flex; align-items: center; gap: 4px;';
                 dispoWrapper.appendChild(chkDispo);
                 dispoWrapper.appendChild(inputDate);
                 tdDelai.appendChild(dispoWrapper);
-                tdDelai.appendChild(createInteractiveField(data.delaiTxt || '', 'Précisions dispo...', '120px', 1000, (val) => {
-                    data.delaiTxt = val;
-                    saveCloudData();
-                }));
                 row.insertBefore(tdDelai, actionsTd);
 
                 const tdNote = document.createElement('td');
                 tdNote.className = 'cell-note kompa-cell';
-                tdNote.appendChild(createInteractiveField(data.note, 'Note...', '130px', 1000, (val) => {
+                tdNote.appendChild(createInteractiveField(data.note, 'Note...', '120px', 1000, (val) => {
                     data.note = val;
                     saveCloudData();
                 }));
@@ -817,46 +820,29 @@
                 if (!storeData.invoices[itemId]) storeData.invoices[itemId] = { sav: '' };
                 const data = storeData.invoices[itemId];
 
-                const tdSavElement = document.createElement('td');
-                tdSavElement.className = 'cell-sav kompa-cell';
-                tdSavElement.appendChild(createInteractiveField(data.sav, 'Note SAV...', '150px', 1000, (val) => {
+                const tdSav = document.createElement('td');
+                tdSav.className = 'cell-sav kompa-cell';
+                tdSav.appendChild(createInteractiveField(data.sav, 'Note SAV...', '140px', 1000, (val) => {
                     data.sav = val;
                     saveCloudData();
                 }));
-                row.insertBefore(tdSavElement, actionsTd);
+                row.insertBefore(tdSav, actionsTd);
             }
         });
 
-        calculateTotals(isQuotePage, isInvoicePage);
         applyColumnVisibility();
+        calculateTotals(isQuotePage, isInvoicePage);
         reconnectObserver();
     }
 
-    function createTH(text, className, minWidth) {
-        const th = document.createElement('th');
-        th.className = className;
-        th.innerText = text;
-        th.style.fontWeight = 'bold';
-        th.style.padding = '8px';
-        th.style.whiteSpace = 'nowrap';
-        if (minWidth) th.style.minWidth = minWidth;
-        return th;
-    }
-
     function reconnectObserver() {
-        if (observer) {
-            observer.observe(document.body, { childList: true, subtree: true });
+        if (!observer) {
+            observer = new MutationObserver(() => {
+                processTable();
+            });
         }
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
     loadCloudData();
-
-    let debounceTimer = null;
-    observer = new MutationObserver(() => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(processTable, 300);
-    });
-
-    reconnectObserver();
-
 })();
