@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.7 (Tracking & Couleurs Statuts)
+// @name         Kompa - Base v8.8.9 (Tracking, Liens Markdown & Champs Discrets)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.7
-// @description  Filtrage dynamique, agenda OR, suivi visuel par couleurs selon statut
+// @version      8.8.9
+// @description  Filtrage dynamique, agenda OR, champs invisibles au survol, support [mot](url)
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
 // @downloadURL  https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -63,28 +63,38 @@
         tr.kompa-status-unplanned { background-color: #fdba74 !important; }/* Orange saturé */
         tr.kompa-status-overdue { background-color: #fef9c3 !important; }  /* Jaune doux */
 
+        /* Textarea par défaut : style très discret / invisible */
         .kompa-textarea {
             font-size: 11px !important;
-            padding: 4px 6px !important;
-            border: 1px solid #cbd5e1 !important;
+            padding: 3px 5px !important;
+            border: 1px transparent !important;
             border-radius: 4px !important;
             resize: none !important;
             overflow: hidden !important;
             font-family: inherit !important;
             box-sizing: border-box !important;
             line-height: 1.3 !important;
-            min-height: 28px !important;
+            min-height: 24px !important;
             display: block !important;
             width: 100% !important;
-            background-color: #ffffff !important;
+            background-color: transparent !important;
             color: #0f172a !important;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.15s ease;
+            cursor: pointer;
         }
 
+        .kompa-textarea:hover {
+            border-color: #cbd5e1 !important;
+            background-color: rgba(255, 255, 255, 0.5) !important;
+        }
+
+        /* Focus : vrai champ de saisie visible */
         .kompa-textarea:focus {
             outline: none !important;
-            border-color: #2563eb !important;
+            border: 1px solid #2563eb !important;
+            background-color: #ffffff !important;
             box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important;
+            cursor: text;
         }
 
         .kompa-url-link {
@@ -98,17 +108,33 @@
             margin-top: 2px;
         }
 
+        /* Champ Date discret par défaut */
         .kompa-date-input {
             font-size: 11px !important;
             padding: 2px 4px !important;
-            border: 1px solid #94a3b8 !important;
+            border: 1px transparent !important;
             border-radius: 4px !important;
             font-family: inherit !important;
             box-sizing: border-box !important;
             display: inline-block !important;
             width: 110px !important;
-            background-color: #ffffff !important;
+            background-color: transparent !important;
             color: #0f172a !important;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .kompa-date-input:hover {
+            border-color: #94a3b8 !important;
+            background-color: rgba(255, 255, 255, 0.5) !important;
+        }
+
+        .kompa-date-input:focus {
+            outline: none !important;
+            border: 1px solid #2563eb !important;
+            background-color: #ffffff !important;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important;
+            cursor: text;
         }
 
         .col-delai-sortable { cursor: pointer !important; user-select: none; }
@@ -154,7 +180,6 @@
             transition: background 0.2s ease;
         }
         
-        /* Couleurs des segments du tracker */
         .kompa-bar-segment.seg-cmd.active { background-color: #ef4444; }   /* Rouge */
         .kompa-bar-segment.seg-plan.active { background-color: #f97316; }  /* Orange */
         .kompa-bar-segment.seg-dispo.active { background-color: #eab308; } /* Jaune */
@@ -184,6 +209,14 @@
     `;
     document.head.appendChild(styleSheet);
 
+    function parseMarkdownLinks(text) {
+        MARKDOWN_LINK_REGEX.lastIndex = 0;
+        return escapeHtml(text).replace(MARKDOWN_LINK_REGEX, (match, linkText, url) => {
+            const safeUrl = escapeHtml(url);
+            return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="kompa-url-link">${linkText}</a>`;
+        });
+    }
+
     function createInteractiveField(value, placeholder, width, maxLength = 1000, onChange, isCalendarMode = false) {
         const wrapper = document.createElement('div');
         wrapper.style.cssText = `position: relative; display: block; width: ${width};`;
@@ -203,7 +236,7 @@
         txt.addEventListener('input', adjustHeight);
 
         const displayContainer = document.createElement('div');
-        displayContainer.style.cssText = 'font-size: 11px; display: none; line-height: 1.2; word-break: break-all; white-space: normal; user-select: none;';
+        displayContainer.style.cssText = 'font-size: 11px; display: none; line-height: 1.2; word-break: break-all; white-space: normal; user-select: none; padding: 3px 5px;';
 
         const updateDisplay = () => {
             const currentVal = txt.value.trim();
@@ -249,13 +282,9 @@
                 return;
             }
 
+            // Gestion des liens Markdown [texte](url) ou URL brute
             if (MARKDOWN_LINK_REGEX.test(currentVal)) {
-                MARKDOWN_LINK_REGEX.lastIndex = 0;
-                const formattedHtml = escapeHtml(currentVal).replace(MARKDOWN_LINK_REGEX, (match, text, url) => {
-                    const safeUrl = escapeHtml(url);
-                    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="kompa-url-link">${text}</a>`;
-                });
-                displayContainer.innerHTML = formattedHtml;
+                displayContainer.innerHTML = parseMarkdownLinks(currentVal);
                 txt.style.display = 'none';
                 displayContainer.style.display = 'block';
             } else if (RAW_URL_REGEX.test(currentVal)) {
@@ -460,7 +489,7 @@
         table.querySelectorAll('tbody tr').forEach(row => {
             applyRowFilter(row);
         });
-        calculateTotals(window.location.pathname.toLowerCase().endsWith('/quotes'), window.location.pathname.toLowerCase().endsWith('/invoices'));
+        renderControlBar(window.location.pathname.toLowerCase().endsWith('/quotes'));
     }
 
     function toggleModal(show) {
@@ -541,55 +570,29 @@
         };
     }
 
-    function calculateTotals(isQuotePage, isInvoicePage) {
+    function renderControlBar(isQuotePage) {
         const table = document.querySelector('table');
         if (!table) return;
 
-        let total1 = 0;
-        let total2 = 0;
-
-        table.querySelectorAll('tbody tr').forEach(row => {
-            if (row.style.display === 'none') return;
-
-            const matches = row.innerText.match(/\d+[\d\s]*[,\.]\d{2}\s*€/g);
-            if (matches && matches.length >= 1) {
-                const val1 = parseFloat(matches[0].replace(/\s/g, '').replace(',', '.').replace('€', ''));
-                if (!isNaN(val1)) total1 += val1;
-            }
-            if (matches && matches.length >= 2) {
-                const val2 = parseFloat(matches[1].replace(/\s/g, '').replace(',', '.').replace('€', ''));
-                if (!isNaN(val2)) total2 += val2;
-            }
-        });
-
-        let totalBanner = document.getElementById('kompa-custom-totals');
-        if (!totalBanner) {
-            totalBanner = document.createElement('div');
-            totalBanner.id = 'kompa-custom-totals';
-            totalBanner.style.cssText = 'padding: 6px 10px; margin: 8px 0; background: #f0f9ff; border-radius: 6px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; font-size: 11px; border: 1px solid #bae6fd; flex-wrap: wrap; gap: 6px; box-sizing: border-box; color: #0369a1; width: 100%;';
+        let controlBanner = document.getElementById('kompa-custom-controls');
+        if (!controlBanner) {
+            controlBanner = document.createElement('div');
+            controlBanner.id = 'kompa-custom-controls';
+            controlBanner.style.cssText = 'padding: 6px 10px; margin: 8px 0; background: #f0f9ff; border-radius: 6px; font-weight: 600; display: flex; align-items: center; justify-content: flex-end; font-size: 11px; border: 1px solid #bae6fd; flex-wrap: wrap; gap: 6px; box-sizing: border-box; color: #0369a1; width: 100%;';
 
             const searchInput = document.querySelector('input[placeholder*="Rechercher"]');
             let filterBlock = searchInput ? searchInput.closest('div[class*="flex"], div[class*="grid"]') : null;
 
             if (filterBlock && filterBlock.parentNode) {
-                filterBlock.parentNode.insertBefore(totalBanner, filterBlock.nextSibling);
+                filterBlock.parentNode.insertBefore(controlBanner, filterBlock.nextSibling);
             } else {
-                table.parentElement.insertBefore(totalBanner, table);
+                table.parentElement.insertBefore(controlBanner, table);
             }
         }
 
-        const fmt = num => num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        controlBanner.innerHTML = `<div id="btn-container" style="display:flex; gap:8px; align-items:center;"></div>`;
 
-        let labelHtml = '';
-        if (isQuotePage) {
-            labelHtml = `<span>Total Devis HT : <strong style="color:#0284c7">${fmt(total1)}</strong> | Total Facturé HT : <strong style="color:#16a34a">${fmt(total2)}</strong></span>`;
-        } else if (isInvoicePage) {
-            labelHtml = `<span>Total Facturé TTC : <strong style="color:#0284c7">${fmt(total1)}</strong> | Total Réglé TTC : <strong style="color:#16a34a">${fmt(total2)}</strong></span>`;
-        }
-
-        totalBanner.innerHTML = `<div id="totals-text" style="flex: 1; min-width: 180px; line-height: 1.3;">${labelHtml}</div><div id="btn-container" style="display:flex; gap:8px; align-items:center;"></div>`;
-
-        const btnContainer = totalBanner.querySelector('#btn-container');
+        const btnContainer = controlBanner.querySelector('#btn-container');
 
         if (isQuotePage && !btnContainer.querySelector('.kompa-filter-group')) {
             const filterGroup = document.createElement('div');
@@ -740,7 +743,7 @@
                 chkCmd.onchange = () => {
                     data.cmd = chkCmd.checked;
                     updateRowStatusUI(row, data);
-                    calculateTotals(isQuotePage, isInvoicePage);
+                    renderControlBar(isQuotePage);
                     saveCloudData();
                 };
                 const flexCmd = document.createElement('div');
@@ -762,7 +765,7 @@
                 chkPlan.onchange = () => {
                     data.plan = chkPlan.checked;
                     updateRowStatusUI(row, data);
-                    calculateTotals(isQuotePage, isInvoicePage);
+                    renderControlBar(isQuotePage);
                     saveCloudData();
                 };
                 const flexPlan = document.createElement('div');
@@ -784,7 +787,7 @@
                 chkDispo.onchange = () => {
                     data.dispo = chkDispo.checked;
                     updateRowStatusUI(row, data);
-                    calculateTotals(isQuotePage, isInvoicePage);
+                    renderControlBar(isQuotePage);
                     saveCloudData();
                 };
                 const inputDate = document.createElement('input');
@@ -828,7 +831,7 @@
         });
 
         applyColumnVisibility();
-        calculateTotals(isQuotePage, isInvoicePage);
+        renderControlBar(isQuotePage);
         reconnectObserver();
     }
 
