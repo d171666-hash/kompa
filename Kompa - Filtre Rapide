@@ -1,5 +1,5 @@
 // ==UserScript== 
-// @name         Kompa - Filtre Rapide Statuts Devis
+// @name         Kompa - Filtre 3.2.0 Rapide Statuts Devis
 // @namespace    http://tampermonkey.net/
 // @version      3.2.0
 // @description  Bouton d'action rapide pour cocher les devis en cours avec délai
