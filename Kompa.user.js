@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Kompa - Base v8.8.6 (Auto-resize textareas & 1000 chars)
+// @name         Kompa - Base v8.8.7 (Auto-resize textareas & 1000 chars)
 // @namespace    http://tampermonkey.net/
-// @version      8.8.6
+// @version      8.8.7
 // @description  Filtrage dynamique, agenda OR, auto-resize des champs et limite à 1000 caractères
 // @match        https://app.kompa.pro/*
 // @updateURL    https://raw.githubusercontent.com/d171666-hash/kompa/main/Kompa.user.js
@@ -153,7 +153,7 @@
             background: transparent;
             transition: background 0.2s ease;
         }
-        
+
         /* Couleurs du tracker : Rouge / Orange / Jaune */
         .kompa-bar-segment.seg-cmd.active { background-color: #ef4444; }
         .kompa-bar-segment.seg-plan.active { background-color: #f97316; }
@@ -402,8 +402,9 @@
 
         row.classList.remove('kompa-status-ready', 'kompa-status-uncommanded', 'kompa-status-unplanned', 'kompa-status-overdue');
 
-        // Vérification du statut natif "Signé"
-        const isSigned = row.innerText.toLowerCase().includes('signé');
+        // Détection robuste du statut "Signé" (insensible à la casse et aux accents)
+        const rowText = row.innerText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const isSigned = rowText.includes('signe');
 
         // Vérification du délai dépassé
         let isOverdue = false;
